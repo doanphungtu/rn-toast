@@ -3,4 +3,5 @@ module.exports = {
   testEnvironment: 'node',
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.{ts,tsx}'],
+  testPathIgnorePatterns: ['/node_modules/', '/lib/'],
 };

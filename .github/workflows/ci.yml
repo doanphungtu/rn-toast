@@ -1,8 +1,6 @@
 name: CI
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   pull_request:
@@ -11,6 +9,9 @@ on:
   merge_group:
     types:
       - checks_requested
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -81,6 +82,8 @@ jobs:
       - build-library
       - build-web
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -92,6 +95,10 @@ jobs:
       - name: Build package
         run: yarn prepare
 
+      - name: Remove "private" flag from package.json
+        run: |
+          jq 'del(.private)' package.json > temp.json && mv temp.json package.json
+
       - name: Configure npm auth
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
@@ -99,16 +106,15 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish to npm
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub release
-        uses: actions/create-release@120b4cded1c3c4a933a1329990d8742b4cd0efc6 # v1.1.4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: ${{ github.ref_name }}
-          generate_release_notes: true
